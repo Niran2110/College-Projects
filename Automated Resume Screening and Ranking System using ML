@@ -1,0 +1,101 @@
+#resume ranking + screening
+
+import streamlit as st
+from PyPDF2 import PdfReader
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# --- Function to extract text from PDF ---
+def extract_text_from_pdf(file):
+    pdf = PdfReader(file)
+    text = ""
+    for page in pdf.pages:
+        if page.extract_text():
+            text += page.extract_text()
+    return text
+
+# --- Function to rank resumes based on job description ---
+def rank_resumes(job_description, resumes):
+    documents = [job_description] + resumes
+    vectorizer = TfidfVectorizer().fit_transform(documents)
+    vectors = vectorizer.toarray()
+    
+    job_vector = vectors[0]
+    resume_vectors = vectors[1:]
+    similarity_scores = cosine_similarity([job_vector], resume_vectors).flatten()
+    
+    return similarity_scores
+
+# --- Function to screen resumes based on keyword matches ---
+def screen_resumes(job_description, resumes):
+    job_keywords = [word.strip().lower() for word in job_description.split() if len(word) > 3]
+    screening_results = []
+
+    for resume in resumes:
+        resume_text = resume.lower()
+        matched = [kw for kw in job_keywords if kw in resume_text]
+        match_count = len(matched)
+        match_ratio = match_count / len(job_keywords) if job_keywords else 0
+        passed = match_ratio >= 0.3  # Threshold for passing screening
+        screening_results.append({
+            "Matched Keywords": match_count,
+            "Passed Screening": "✅" if passed else "❌"
+        })
+
+    return screening_results
+
+# --- Streamlit App UI ---
+st.set_page_config(page_title="Resume Ranking & Screening", layout="centered")
+st.title("📄 Resume Ranking & Screening System")
+
+# Job Description
+st.header("Job Description")
+job_description = st.text_area("Paste the job description here")
+
+# File Upload
+st.header("Upload Resumes (PDF)")
+uploaded_files = st.file_uploader("Upload multiple PDF resumes", type=["pdf"], accept_multiple_files=True)
+
+# Process and Show Results
+if uploaded_files and job_description:
+    st.header("🔍 Screening & Ranking Resumes")
+
+    resumes_text = []
+    file_names = []
+    for file in uploaded_files:
+        try:
+            text = extract_text_from_pdf(file)
+            resumes_text.append(text)
+            file_names.append(file.name)
+        except:
+            resumes_text.append("")
+            file_names.append(file.name + " (error reading file)")
+
+    # Calculate similarity scores
+    similarity_scores = rank_resumes(job_description, resumes_text)
+
+    # Perform screening
+    screening_results = screen_resumes(job_description, resumes_text)
+
+    # Build final results
+    results_df = pd.DataFrame({
+        "Resume": file_names,
+        "Similarity Score": similarity_scores,
+        "Matched Keywords": [r["Matched Keywords"] for r in screening_results],
+        "Passed Screening": [r["Passed Screening"] for r in screening_results]
+    })
+
+    # Sort by score
+    results_df = results_df.sort_values(by="Similarity Score", ascending=False)
+
+    # Display the table
+    st.dataframe(results_df.reset_index(drop=True), use_container_width=True)
+
+    # Optional: download button
+    st.download_button(
+        label="Download Results as CSV",
+        data=results_df.to_csv(index=False),
+        file_name="resume_screening_results.csv",
+        mime="text/csv"
+    )
