@@ -1,0 +1,174 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define MAX_SIZE 5
+
+int correct[MAX_SIZE][MAX_SIZE];
+
+void printPuzzle(int puzzle[MAX_SIZE][MAX_SIZE], int rowOps[MAX_SIZE], int colOps[MAX_SIZE], int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
+            if (puzzle[i][j] == -1)
+                printf(" _ ");
+            else
+                printf("%2d ", puzzle[i][j]);
+        }
+        printf("| %d\n", rowOps[i]);
+    }
+
+    for (int j = 0; j < size; j++)
+        printf("---");
+    printf("\n");
+
+    for (int j = 0; j < size; j++)
+    {
+        printf("%2d ", colOps[j]);
+    }
+    printf("\n");
+}
+
+void generatePuzzle(int puzzle[MAX_SIZE][MAX_SIZE], int rowOps[MAX_SIZE], int colOps[MAX_SIZE], int size, int blanks)
+{
+    srand(time(0));
+
+    // Initialize with random numbers
+    for (int i = 0; i < size; i++)
+        for (int j = 0; j < size; j++)
+            puzzle[i][j] = rand() % 10 + 1;
+
+    // Calculate row and column operations
+    for (int i = 0; i < size; i++)
+    {
+        rowOps[i] = 0;
+        colOps[i] = 0;
+        for (int j = 0; j < size; j++)
+        {
+            rowOps[i] += puzzle[i][j];
+            colOps[i] += puzzle[j][i];
+        }
+    }
+
+    for (int i = 0; i < size; i++)
+    {
+        for (int j = 0; j < size; j++)
+        {
+            correct[i][j] = puzzle[i][j];
+        }
+    }
+
+    // Randomly replace some numbers with -1 to create blanks
+    for (int i = 0; i < blanks; i++)
+    {
+        puzzle[rand() % size][rand() % size] = -1;
+    }
+}
+
+int main()
+{
+    int size, blanks;
+    while (1)
+    {
+        printf("Choose difficulty level:\n1. Easy\n2. Moderate\n3. Difficult\n4. Exit\n");
+        int choice;
+        printf("\nEnter choice number: ");
+        scanf("%d", &choice);
+
+        switch (choice)
+        {
+        case 1:
+            size = 3;
+            blanks = 3;
+            break;
+        case 2:
+            size = 4;
+            blanks = 6;
+            break;
+        case 3:
+            size = 5;
+            blanks = 10;
+            break;
+        case 4:
+            return 0;
+
+        default:
+            printf("Invalid choice. Exiting.\n");
+            return 0;
+        }
+
+        int puzzle[MAX_SIZE][MAX_SIZE];
+        int puzzleCopy[MAX_SIZE][MAX_SIZE];
+        int rowOperations[MAX_SIZE];
+        int columnOperations[MAX_SIZE];
+
+        generatePuzzle(puzzle, rowOperations, columnOperations, size, blanks);
+
+        printf("You have 3 attempts to solve the puzzle.\n");
+
+        int attempts = 0;
+
+        while (attempts < 3)
+        {
+            printPuzzle(puzzle, rowOperations, columnOperations, size);
+
+            for (int i = 0; i < size; i++)
+            {
+                for (int j = 0; j < size; j++)
+                    puzzleCopy[i][j] = puzzle[i][j];
+            }
+
+            // User input to fill blanks
+            for (int i = 0; i < size; i++)
+            {
+                for (int j = 0; j < size; j++)
+                {
+                    if (puzzle[i][j] == -1)
+                    {
+                        printf("Enter value for cell [%d,%d]: ", i + 1, j + 1);
+                        scanf("%d", &puzzleCopy[i][j]);
+                    }
+                }
+            }
+
+            // Check if user input satisfies conditions
+            int valid = 1;
+            for (int i = 0; i < size; i++)
+            {
+                int rowSum = 0, colSum = 0;
+                for (int j = 0; j < size; j++)
+                {
+                    rowSum += puzzleCopy[i][j];
+                    colSum += puzzleCopy[j][i];
+                }
+                if (rowSum != rowOperations[i] || colSum != columnOperations[i])
+                {
+                    valid = 0;
+                    break;
+                }
+            }
+
+            if (valid)
+            {
+                printf("Congratulations! You solved the puzzle.\n");
+                break; // Break out of the while loop if the puzzle is solved
+            }
+            else
+            {
+                printf("Incorrect solution. Try again.\n");
+                attempts++;
+            }
+        }
+
+        if (attempts >= 3)
+        {
+            printf("You reached your maximum limit. Please try again.\n");
+            printf("Correct solution is...\n");
+            printPuzzle(correct, rowOperations, columnOperations, size);
+        }
+    }
+
+    return 0;
+}
